@@ -5,7 +5,8 @@
 .idea
 
 # yml/yaml files
-config/config.sample.yaml
+config/config.*.yaml
+!config/config.sample.yaml
 
 # proto
 proto/*pb.go
