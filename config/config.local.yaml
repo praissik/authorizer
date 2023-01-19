@@ -1,0 +1,12 @@
+server:
+  host: 127.0.0.1
+  port: 50300
+
+mysql: root:root@tcp(0.0.0.0:3306)/game
+
+cors:
+  - http://localhost:3000
+  - http://127.0.0.1:3000
+  - http://192.168.0.108:3000
+
+frontend_url: localhost:3000

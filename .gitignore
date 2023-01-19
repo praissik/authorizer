@@ -1,0 +1,17 @@
+# dotenv environment variables file
+.env
+
+# IDE / Editor
+.idea
+
+# yml/yaml files
+config/config.sample.yaml
+
+# proto
+proto/*pb.go
+
+# temp
+default
+
+# others
+go.sum
