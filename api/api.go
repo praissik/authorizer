@@ -2,10 +2,9 @@ package api
 
 import (
 	"authorizer/pkg/auth"
+	"authorizer/pkg/proto/pb"
 	"context"
 	"log"
-
-	pb "authorizer/proto"
 )
 
 type Server struct {

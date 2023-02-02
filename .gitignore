@@ -1,18 +1,19 @@
 # dotenv environment variables file
-.env
+/.env
 
 # IDE / Editor
-.idea
+/.idea/
 
 # yml/yaml files
-config/config.*.yaml
-!config/config.sample.yaml
+/config/config.*.yaml
+/!config/config.sample.yaml
 
 # proto
-proto/*pb.go
+/pkg/proto/pb/
 
-# temp
-default
+# static
+/static/png/*
+!/static/png/logo_example.png
 
 # others
-go.sum
+/go.sum

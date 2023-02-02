@@ -2,8 +2,8 @@ package main
 
 import (
 	"authorizer/api"
-	pb "authorizer/proto"
-	"github.com/praissik/web-app-engine/pkg/engine"
+	"authorizer/pkg/proto/pb"
+	"github.com/praissik/web-app-engine/engine"
 )
 
 func init() {
