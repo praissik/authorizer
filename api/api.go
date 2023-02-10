@@ -7,11 +7,15 @@ import (
 	"log"
 )
 
-type Server struct {
+type server struct {
 	pb.UnimplementedAuthServer
 }
 
-func (s *Server) Register(ctx context.Context, in *pb.AuthRequest) (*pb.AuthReply, error) {
+func NewServer() pb.AuthServer {
+	return &server{}
+}
+
+func (s *server) Register(ctx context.Context, in *pb.AuthRequest) (*pb.AuthReply, error) {
 	log.Printf("Received: %v: %v", in.GetEmail(), in.GetPassword())
 
 	token, err := auth.Register(in.GetEmail(), in.GetPassword())

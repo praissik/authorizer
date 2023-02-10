@@ -4,7 +4,6 @@ import (
 	"authorizer/pkg/account"
 	errors "authorizer/pkg/error"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -18,14 +17,11 @@ func Register(email, password string) (string, error) {
 
 	exists, err := account.IsEmailExists(email)
 	if err != nil {
-		log.Println(err.Error())
 		return "", fmt.Errorf(errors.SomethingWentWrong)
 	}
 	if exists {
 		return "", fmt.Errorf(errors.BusyEmail, email)
 	}
-
-	log.Println("here")
 
 	//userEntity.Email = form.Email
 	//userEntity.Password = security.GenerateBcryptHash(form.Password)

@@ -14,7 +14,7 @@ func init() {
 func main() {
 	s, lis := engine.PrepareGrpcServer()
 
-	pb.RegisterAuthServer(s, &api.Server{})
+	pb.RegisterAuthServer(s, api.NewServer())
 
 	engine.RunGrpcServer(s, lis)
 }
