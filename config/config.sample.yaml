@@ -1,12 +1,15 @@
+app_secret: vvVs1SwCqVa8g4OPFag05j5hlf39cAlx
 server:
   host: 127.0.0.1
   port: 50300
 
 mysql: root:root@tcp(0.0.0.0:3306)/game
 
-cors:
-  - http://localhost:3000
-  - http://127.0.0.1:3000
-  - http://192.168.0.108:3000
+mongo:
+  url: mongodb://root:example@localhost:27017/?authSource=admin
+  db: local
 
-frontend_url: localhost:3000
+grpc:
+  email_sender:
+    host: 127.0.0.1
+    port: 50200

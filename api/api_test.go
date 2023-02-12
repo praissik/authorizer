@@ -1,18 +1,50 @@
 package api
 
 import (
+	"authorizer/pkg/account"
 	errors "authorizer/pkg/error"
 	"authorizer/pkg/proto/pb"
 	"authorizer/test"
 	"fmt"
-	"github.com/google/uuid"
+	"net/http"
 	"testing"
 )
 
-func TestServer_Register(t *testing.T) {
-	e := test.GetEngine(t, NewServer())
+const (
+	ID              = "63e8de6816129322bdc04c63"
+	email           = "new@email.com"
+	busyEmail       = "busy@email.com"
+	invalidEmail    = "invalidemail.com"
+	password        = "P@ssw0rd"
+	shortPassword   = "P@ssw0"
+	invalidPassword = "P@ssw0 rd"
+	correlationID   = "c0rr3l@tion-id"
+)
 
-	e.CreateAccount()
+func TestServer_Register(t *testing.T) {
+	e, err := test.GetEngine(t, NewServer())
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+
+	//objectID, err := primitive.ObjectIDFromHex(ID)
+	//if err != nil {
+	//	t.Errorf(err.Error())
+	//	return
+	//}
+
+	accountEntity := &account.Entity{
+		//ID:       objectID,
+		Email:    busyEmail,
+		Password: password,
+	}
+
+	_, err = accountEntity.Create()
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
 
 	tests := []struct {
 		name    string
@@ -21,37 +53,91 @@ func TestServer_Register(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "TestOk",
+			name: "TestOK",
 			in: &pb.AuthRequest{
-				CorrelationID: uuid.New().String(),
-				Email:         e.Email,
-				Password:      e.Password,
+				CorrelationID: correlationID,
+				Email:         email,
+				Password:      password,
 			},
 			want: &pb.AuthReply{
-				Status:  200,
+				Status:  http.StatusOK,
 				Message: "",
 			},
 			wantErr: false,
 		},
 		{
-			name: "TestNoData",
-			in:   &pb.AuthRequest{},
+			name: "TestEmptyEmail",
+			in: &pb.AuthRequest{
+				CorrelationID: correlationID,
+				Password:      password,
+			},
 			want: &pb.AuthReply{
-				Status:  400,
-				Message: errors.EmptyEmail,
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.EmptyEmail),
+			},
+			wantErr: false,
+		},
+		{
+			name: "TestEmptyPassword",
+			in: &pb.AuthRequest{
+				CorrelationID: correlationID,
+				Email:         email,
+			},
+			want: &pb.AuthReply{
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.EmptyPassword),
 			},
 			wantErr: false,
 		},
 		{
 			name: "TestBusyEmail",
 			in: &pb.AuthRequest{
-				CorrelationID: uuid.New().String(),
-				Email:         e.Email,
-				Password:      e.Password,
+				CorrelationID: correlationID,
+				Email:         busyEmail,
+				Password:      password,
 			},
 			want: &pb.AuthReply{
-				Status:  400,
-				Message: fmt.Sprintf(errors.BusyEmail, e.Email),
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.BusyEmail, busyEmail),
+			},
+			wantErr: false,
+		},
+		{
+			name: "TestInvalidEmail",
+			in: &pb.AuthRequest{
+				CorrelationID: correlationID,
+				Email:         invalidEmail,
+				Password:      password,
+			},
+			want: &pb.AuthReply{
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.InvalidEmail, invalidEmail),
+			},
+			wantErr: false,
+		},
+		{
+			name: "TestInvalidPassword",
+			in: &pb.AuthRequest{
+				CorrelationID: correlationID,
+				Email:         email,
+				Password:      invalidPassword,
+			},
+			want: &pb.AuthReply{
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.InvalidPassword),
+			},
+			wantErr: false,
+		},
+		{
+			name: "TestToShortPassword",
+			in: &pb.AuthRequest{
+				CorrelationID: correlationID,
+				Email:         email,
+				Password:      shortPassword,
+			},
+			want: &pb.AuthReply{
+				Status:  http.StatusBadRequest,
+				Message: fmt.Sprintf(errors.ToShortPassword),
 			},
 			wantErr: false,
 		},
@@ -63,7 +149,12 @@ func TestServer_Register(t *testing.T) {
 				t.Errorf("Register() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got.Message != tt.want.Message ||
+			if got.Status == http.StatusOK && got.Status == tt.want.Status {
+				if len(got.Message) == 0 {
+					t.Errorf("Register() got = %v, want %v", got, tt.want)
+					return
+				}
+			} else if got.Message != tt.want.Message ||
 				got.Status != tt.want.Status {
 				t.Errorf("Register() got = %v, want %v", got, tt.want)
 			}

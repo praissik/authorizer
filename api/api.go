@@ -16,7 +16,7 @@ func NewServer() pb.AuthServer {
 }
 
 func (s *server) Register(ctx context.Context, in *pb.AuthRequest) (*pb.AuthReply, error) {
-	log.Printf("Received: %v: %v", in.GetEmail(), in.GetPassword())
+	log.Printf("Received: %v", in.GetEmail())
 
 	token, err := auth.Register(in.GetEmail(), in.GetPassword())
 	if err != nil {

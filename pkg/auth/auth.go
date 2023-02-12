@@ -3,50 +3,60 @@ package auth
 import (
 	"authorizer/pkg/account"
 	errors "authorizer/pkg/error"
+	"authorizer/pkg/proto/pb"
+	"authorizer/pkg/register_request"
+	"authorizer/pkg/security"
+	"context"
+	"crypto/sha256"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"log"
 	"strings"
+	"time"
 )
 
-func Register(email, password string) (string, error) {
-	if err := validEmail(email); err != nil {
-		return "", err
-	}
-	if err := validPassword(password); err != nil {
+func Register(email, password string) (token string, err error) {
+	if err = validData(email, password); err != nil {
 		return "", err
 	}
 
-	exists, err := account.IsEmailExists(email)
+	accountEntity := &account.Entity{
+		Email:    email,
+		Password: password,
+	}
+
+	res, err := accountEntity.Create()
 	if err != nil {
-		return "", fmt.Errorf(errors.SomethingWentWrong)
-	}
-	if exists {
-		return "", fmt.Errorf(errors.BusyEmail, email)
+		return "", err
 	}
 
-	//userEntity.Email = form.Email
-	//userEntity.Password = security.GenerateBcryptHash(form.Password)
-	//ormService.Flush(userEntity)
+	accountID, err := primitive.ObjectIDFromHex(res.InsertedID.(primitive.ObjectID).Hex())
+	if err != nil {
+		return "", err
+	}
 
-	//registerRequestEntity := &entity.RegisterRequestEntity{
-	//	UserID:        userEntity,
-	//	Token:         generateSHA256TokenForUser(userEntity.ID),
-	//	GeneratedDate: time.Now().Unix(),
-	//	ExpiresDate:   time.Now().Add(10 * time.Minute).Unix(),
-	//}
-	//ormService.Flush(registerRequestEntity)
+	registerRequestEntity := &register_request.Entity{
+		AccountID:      accountID,
+		Token:          generateSHA256TokenForUser(accountEntity.Email),
+		GenerationDate: time.Now().Unix(),
+		ExpirationDate: time.Now().Add(10 * time.Minute).Unix(),
+	}
 
-	//emailData := email.Data{
-	//	Address:     userEntity.Email,
-	//	Token:       registerRequestEntity.Token,
-	//	ExpiresDate: registerRequestEntity.ExpiresDate,
-	//}
-	//err = email.SendEmail(emailData)
-	//if err != nil {
-	//	return "", err
-	//}
+	res, err = registerRequestEntity.Create()
+	if err != nil {
+		return "", err
+	}
 
-	//return security.NewToken(userEntity.Email)
-	return "", nil
+	err = sendEmail(accountEntity, registerRequestEntity)
+	if err != nil {
+		return "", err
+	}
+
+	return security.NewToken(accountEntity.Email)
 }
 
 //func (form *Form) ConfirmEmail(in *pb.AuthRequest) error {
@@ -154,11 +164,36 @@ func Register(email, password string) (string, error) {
 //	return "", nil
 //}
 
+func validData(email, password string) error {
+	if err := validEmail(email); err != nil {
+		return err
+	}
+	if err := validPassword(password); err != nil {
+		return err
+	}
+	err := isEmailExists(email)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func isEmailExists(email string) error {
+	accountEntity, err := account.GetAccountByEmail(email)
+	if err != nil {
+		return err
+	}
+	if accountEntity != nil {
+		return fmt.Errorf(errors.BusyEmail, email)
+	}
+	return nil
+}
+
 func validEmail(email string) error {
 	if email == "" {
 		return fmt.Errorf(errors.EmptyEmail)
 	}
-	if !strings.ContainsAny(email, "@ & .") {
+	if !strings.ContainsAny(email, "@") {
 		return fmt.Errorf(errors.InvalidEmail, email)
 	}
 	return nil
@@ -177,8 +212,36 @@ func validPassword(password string) error {
 	return nil
 }
 
-//func generateSHA256TokenForUser(userID uint64) string {
-//	h := sha256.New()
-//	h.Write([]byte(time.Now().String() + strconv.FormatUint(userID, 10)))
-//	return fmt.Sprintf("%x", h.Sum(nil))
-//}
+func generateSHA256TokenForUser(email string) string {
+	h := sha256.New()
+	h.Write([]byte(time.Now().String() + email))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func sendEmail(accountEntity *account.Entity, registerRequestEntity *register_request.Entity) error {
+	addr := viper.GetString("grpc.email_sender.host") + ":" + viper.GetString("grpc.email_sender.port")
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(fmt.Errorf("did not connect: %v", err))
+		return err
+	}
+
+	defer func(conn *grpc.ClientConn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println(err.Error())
+		}
+	}(conn)
+
+	emailClient := pb.NewEmailClient(conn)
+
+	_, err = emailClient.SendEmail(context.Background(), &pb.SendEmailRequest{
+		CorrelationID: uuid.New().String(),
+		Address:       accountEntity.Email,
+		Subject:       "Register",
+		HtmlBody:      "<html><body><h6>SendRegistrationEmail</h6></body></html>",
+		//Link:           registerRequestEntity.Token,
+		//ExpirationDate: registerRequestEntity.ExpirationDate,
+	})
+	return err
+}

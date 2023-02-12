@@ -2,8 +2,8 @@ package security
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"log"
-	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -32,7 +32,7 @@ func NewToken(email string) (string, error) {
 		"time":  time.Now().UTC().Unix(),
 	})
 
-	tokenString, err := token.SignedString([]byte(os.Getenv("APP_SECRET")))
+	tokenString, err := token.SignedString([]byte(viper.GetString("app_secret")))
 	if err != nil {
 		return "", fmt.Errorf("try again")
 	}
@@ -45,7 +45,7 @@ func ValidToken(tokenString string) error {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return os.Getenv("APP_SECRET"), nil
+		return viper.GetString("app_secret"), nil
 	})
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {

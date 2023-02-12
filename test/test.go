@@ -1,10 +1,11 @@
 package test
 
 import (
-	"authorizer/pkg/database"
+	"authorizer/pkg/db"
 	"authorizer/pkg/proto/pb"
 	"context"
 	"github.com/praissik/web-app-engine/engine"
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -15,11 +16,8 @@ import (
 )
 
 type Engine struct {
-	Client    pb.AuthClient
-	Email     string
-	BusyEmail string
-	Password  string
-	Ctx       context.Context
+	Ctx    context.Context
+	Client pb.AuthClient
 }
 
 func initEnv(t *testing.T) {
@@ -29,20 +27,43 @@ func initViper() {
 	engine.InitViper()
 }
 
-func GetEngine(t *testing.T, authServer pb.AuthServer) Engine {
+func cleanDatabase() error {
+	mongoClient, deferF, err := db.GetMongoClient()
+	defer deferF()
+	if err != nil {
+		return err
+	}
+
+	collections, _ := mongoClient.Database(viper.GetString("mongo.db")).ListCollectionNames(
+		context.TODO(),
+		bson.D{})
+	if err != nil {
+		return err
+	}
+	for _, collection := range collections {
+		err = mongoClient.Database(viper.GetString("mongo.db")).Collection(collection).Drop(context.TODO())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GetEngine(t *testing.T, authServer pb.AuthServer) (*Engine, error) {
 	initEnv(t)
 	initViper()
 
 	ctx := context.Background()
 	client, _ := server(ctx, authServer)
 
-	return Engine{
-		Client:    client,
-		Email:     "new@email.com",
-		BusyEmail: "busy@email.com",
-		Password:  "password",
-		Ctx:       ctx,
+	if err := cleanDatabase(); err != nil {
+		return nil, err
 	}
+
+	return &Engine{
+		Ctx:    ctx,
+		Client: client,
+	}, nil
 }
 
 func server(ctx context.Context, authServer pb.AuthServer) (pb.AuthClient, func()) {
@@ -77,15 +98,4 @@ func server(ctx context.Context, authServer pb.AuthServer) (pb.AuthClient, func(
 	client := pb.NewAuthClient(conn)
 
 	return client, closer
-}
-
-func (e Engine) CreateAccount() {
-	mongoClient := database.GetMongoClient()
-	_, err := mongoClient.
-		Database("test").
-		Collection("account").
-		InsertOne(context.TODO(), bson.D{{"email", e.BusyEmail}})
-	if err != nil {
-		log.Fatal(err)
-	}
 }
